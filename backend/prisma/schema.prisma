@@ -9,6 +9,9 @@
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
+  // Nest 11 собирается в CommonJS; импорты без расширений — чтобы tsc и ts-jest резолвили одинаково.
+  moduleFormat        = "cjs"
+  importFileExtension = ""
 }
 
 datasource db {

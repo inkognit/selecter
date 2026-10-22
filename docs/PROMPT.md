@@ -95,7 +95,7 @@ API `/api/v1`, ответ `{ success, data, meta, error }`:
 | DELETE | `/tasks/:id`      | удалить                               |
 | GET    | `/health`         | готовность (для ожидания фронтом)     |
 
-- Коды ошибок snake_case: `task_not_found`, `validation_failed`, `internal_error`.
+- Коды ошибок snake_case: `task_not_found`, `validation_failed`, `task_conflict`, `internal_error`.
   Один глобальный exception-фильтр мапит их на HTTP-статусы.
 - Request и Response DTO — разные классы; Response DTO присваивает поля поимённо.
 - `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`, ошибка валидации → 422.
