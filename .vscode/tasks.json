@@ -1,0 +1,104 @@
+{
+  // Задачи запуска. Их вызывает launch.json (preLaunchTask), руками запускать не нужно.
+  // Порядок развёртывания БД строгий: .env → зависимости → база healthy → миграции → initial.sql.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "env: создать .env из примера",
+      "type": "shell",
+      "command": "node scripts/env-init.mjs",
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      "label": "deps: бэкенд",
+      "type": "shell",
+      "command": "npm install --no-audit --no-fund",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      "label": "deps: веб",
+      "type": "shell",
+      "command": "npm install --no-audit --no-fund",
+      "options": { "cwd": "${workspaceFolder}/web" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      // --wait возвращает управление только после healthcheck — без sleep перед миграциями.
+      "label": "infra: up",
+      "type": "shell",
+      "command": "docker compose up -d --wait",
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      "label": "db: migrate",
+      "type": "shell",
+      "command": "npm run db:migrate",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      // Демо-задачи из initial.sql применяются один раз за жизнь базы (отметка в seed_history).
+      "label": "db: seed",
+      "type": "shell",
+      "command": "npm run db:seed",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      "label": "api: build",
+      "type": "shell",
+      "command": "npm run build",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "problemMatcher": "$tsc",
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      "label": "stack: prepare",
+      "dependsOn": ["env: создать .env из примера", "deps: бэкенд", "infra: up", "db: migrate", "db: seed"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      // Полная подготовка API: всё выше + сборка. preLaunchTask конфигурации «API».
+      "label": "api: подготовка (контейнеры + миграции + данные + сборка)",
+      "dependsOn": ["stack: prepare", "api: build"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      // Для «API · на уже поднятых контейнерах»: только сборка, базу не трогаем.
+      "label": "api: только сборка",
+      "dependsOn": ["env: создать .env из примера", "deps: бэкенд", "api: build"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "web: дождаться API",
+      "dependsOn": ["deps: веб"],
+      "type": "shell",
+      "command": "node scripts/wait-for-api.mjs",
+      "problemMatcher": []
+    },
+    {
+      "label": "infra: down",
+      "type": "shell",
+      "command": "docker compose down",
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      // СТИРАЕТ БАЗУ ЦЕЛИКОМ: все задачи пропадут, при следующем запуске вернутся демо-данные.
+      "label": "infra: reset (стирает данные)",
+      "type": "shell",
+      "command": "docker compose down -v",
+      "problemMatcher": []
+    }
+  ]
+}

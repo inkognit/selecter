@@ -1,0 +1,103 @@
+{
+  // ═══ ЗАПУСК КАНБАН-ДОСКИ. Порты проекта 35xx: 3500 API, 3501 веб, 3510 PostgreSQL ═══
+  //
+  // Обычный запуск — «ВСЁ · API + веб» (F5). Перед стартом API задача из tasks.json сама:
+  // создаст .env, поставит зависимости, поднимет PostgreSQL в Docker, накатит миграции
+  // и демо-данные из backend/prisma/initial.sql, соберёт бэкенд.
+  // Веб стартует параллельно и ждёт ответа /health, а не «своей очереди».
+  // Контейнер базы после остановки отладки остаётся — данные живут в томе.
+  // Стереть базу целиком: Terminal → Run Task → «infra: reset (стирает данные)».
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API · с подготовкой базы",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/dist/main.js",
+      "cwd": "${workspaceFolder}/backend",
+      "preLaunchTask": "api: подготовка (контейнеры + миграции + данные + сборка)",
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/backend/dist/**/*.js"],
+      "env": { "ENV_FILE": "${workspaceFolder}/.env", "NODE_ENV": "development" },
+      "console": "integratedTerminal",
+      "presentation": { "group": "1-api", "order": 1 }
+    },
+    {
+      "name": "API · на уже поднятых контейнерах",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/dist/main.js",
+      "cwd": "${workspaceFolder}/backend",
+      "preLaunchTask": "api: только сборка",
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/backend/dist/**/*.js"],
+      "env": { "ENV_FILE": "${workspaceFolder}/.env", "NODE_ENV": "development" },
+      "console": "integratedTerminal",
+      "presentation": { "group": "1-api", "order": 2 }
+    },
+    {
+      // Next в dev-режиме; вкладку браузера VS Code открывает сам, когда Next напишет адрес.
+      "name": "Веб · 3501 (ждёт API)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/web",
+      "preLaunchTask": "web: дождаться API",
+      "env": { "NEXT_TELEMETRY_DISABLED": "1" },
+      "console": "integratedTerminal",
+      "serverReadyAction": {
+        "pattern": "Local:\\s+(https?://\\S+)",
+        "uriFormat": "%s",
+        "action": "openExternally"
+      },
+      "presentation": { "group": "2-web", "order": 1 }
+    },
+    {
+      "name": "Тесты · бэкенд unit (база не нужна)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["test"],
+      "cwd": "${workspaceFolder}/backend",
+      "console": "integratedTerminal",
+      "presentation": { "group": "3-tests", "order": 1 }
+    },
+    {
+      // Отдельная база kanban_test в том же контейнере — рабочая доска не трогается.
+      "name": "Тесты · бэкенд e2e (живой PostgreSQL)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "test:e2e"],
+      "cwd": "${workspaceFolder}/backend",
+      "preLaunchTask": "stack: prepare",
+      "console": "integratedTerminal",
+      "presentation": { "group": "3-tests", "order": 2 }
+    },
+    {
+      "name": "Тесты · веб",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["test"],
+      "cwd": "${workspaceFolder}/web",
+      "console": "integratedTerminal",
+      "presentation": { "group": "3-tests", "order": 3 }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "ВСЁ · API + веб",
+      "configurations": ["API · с подготовкой базы", "Веб · 3501 (ждёт API)"],
+      "stopAll": true,
+      "presentation": { "group": "0-all", "order": 1 }
+    },
+    {
+      "name": "ВСЁ · на уже поднятых контейнерах",
+      "configurations": ["API · на уже поднятых контейнерах", "Веб · 3501 (ждёт API)"],
+      "stopAll": true,
+      "presentation": { "group": "0-all", "order": 2 }
+    }
+  ]
+}
