@@ -29,7 +29,7 @@ export class PrismaTasksRepository implements TasksRepository {
   }
 
   create(data: NewTask): Promise<Task> {
-    return this.write(async (tx) => {
+    return this._write(async (tx) => {
       const { _max } = await tx.task.aggregate({ where: { status: 'NEW' }, _max: { position: true } });
       const row = await tx.task.create({ data: { ...data, status: 'NEW', position: (_max.position ?? -1) + 1 } });
       return toTask(row);
@@ -46,7 +46,7 @@ export class PrismaTasksRepository implements TasksRepository {
   }
 
   move(id: string, status: TaskStatus, position: number): Promise<Task | null> {
-    return this.write(async (tx) => {
+    return this._write(async (tx) => {
       const task = await tx.task.findUnique({ where: { id } });
       if (!task) return null;
 
@@ -67,7 +67,7 @@ export class PrismaTasksRepository implements TasksRepository {
   }
 
   remove(id: string): Promise<boolean> {
-    return this.write(async (tx) => {
+    return this._write(async (tx) => {
       const task = await tx.task.findUnique({ where: { id }, select: { status: true } });
       if (!task) return false;
       const rest = planRemoval(await columnIds(tx, task.status), id);
@@ -78,7 +78,7 @@ export class PrismaTasksRepository implements TasksRepository {
   }
 
   /** Транзакция под блокировкой доски + перевод ошибок БД в доменные. */
-  private async write<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
+  private async _write<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
     try {
       return await this.prisma.$transaction(async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(${BOARD_LOCK_KEY}::bigint)`;
