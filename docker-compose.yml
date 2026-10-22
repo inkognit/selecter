@@ -1,0 +1,22 @@
+# Инфраструктура разработки. Подъём строго `docker compose up -d --wait`:
+# управление возвращается после healthy, миграции не стартуют раньше базы.
+# Порты проекта — 35xx: 3500 API, 3501 веб, 3510 PostgreSQL.
+name: kanban
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kanban
+      POSTGRES_PASSWORD: kanban
+      POSTGRES_DB: kanban
+    ports: ['3510:5432']
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kanban -d kanban']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:

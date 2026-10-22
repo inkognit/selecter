@@ -1,0 +1,57 @@
+{
+  // Развёртывание БД при запуске из Debug (launch.json → preLaunchTask «stack: prepare»).
+  // Порядок строгий: база healthy → миграции → демо-данные из initial.sql.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "deps: install",
+      "type": "shell",
+      "command": "npm install --no-audit --no-fund",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "problemMatcher": []
+    },
+    {
+      // --wait возвращает управление только после healthcheck — без sleep перед миграциями.
+      "label": "infra: up",
+      "type": "shell",
+      "command": "docker compose up -d --wait",
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      "label": "db: migrate",
+      "type": "shell",
+      "command": "npm run db:migrate",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "problemMatcher": []
+    },
+    {
+      // Демо-задачи применяются один раз за жизнь базы (отметка в seed_history).
+      "label": "db: seed",
+      "type": "shell",
+      "command": "npm run db:seed",
+      "options": { "cwd": "${workspaceFolder}/backend" },
+      "problemMatcher": []
+    },
+    {
+      "label": "stack: prepare",
+      "dependsOn": ["deps: install", "infra: up", "db: migrate", "db: seed"],
+      "dependsOrder": "sequence",
+      "problemMatcher": []
+    },
+    {
+      "label": "infra: down",
+      "type": "shell",
+      "command": "docker compose down",
+      "problemMatcher": [],
+      "presentation": { "reveal": "silent", "panel": "shared" }
+    },
+    {
+      // СТИРАЕТ БАЗУ ЦЕЛИКОМ: все задачи пропадут, при следующем запуске вернутся демо-данные.
+      "label": "infra: reset (стирает данные)",
+      "type": "shell",
+      "command": "docker compose down -v",
+      "problemMatcher": []
+    }
+  ]
+}

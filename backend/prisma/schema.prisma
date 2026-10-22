@@ -1,0 +1,59 @@
+// Схема БД канбан-доски. Подробности и инварианты — docs/DB.md.
+//
+// Prisma не выражает часть ограничений, они дописаны в SQL миграции init_tasks:
+//   - CHECK на длину title/description и position >= 0 (Prisma их не видит и не трогает);
+//   - DEFERRABLE у UNIQUE (status, position) — в схеме он объявлен как обычный @@unique.
+// Поэтому новые миграции создаются только через `prisma migrate dev --create-only`
+// с ручной проверкой SQL (см. docs/DB.md, «Как добавить миграцию»).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Колонка доски. Новый статус = значение здесь + миграция + подпись колонки на фронте.
+enum TaskStatus {
+  NEW
+  IN_PROGRESS
+  DONE
+
+  @@map("task_status")
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+
+  @@map("task_priority")
+}
+
+model Task {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String       @db.VarChar(200)
+  description String?
+  status      TaskStatus   @default(NEW)
+  priority    TaskPriority @default(MEDIUM)
+  /// Порядок внутри колонки: 0 — сверху, без дыр.
+  position    Int
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  // Реально в БД — CONSTRAINT ... DEFERRABLE INITIALLY DEFERRED (см. миграцию init_tasks).
+  // Объявлен здесь под тем же именем, чтобы migrate diff не предлагал его удалить.
+  @@unique([status, position], map: "tasks_status_position_key")
+  @@map("tasks")
+}
+
+/// Какие наборы начальных данных уже применены. Нужна, чтобы initial.sql не возвращал
+/// демо-задачи, которые пользователь удалил, при каждом запуске из Debug.
+model SeedHistory {
+  name      String   @id @db.VarChar(100)
+  appliedAt DateTime @default(now()) @map("applied_at") @db.Timestamptz(3)
+
+  @@map("seed_history")
+}
